@@ -1,62 +1,49 @@
 from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram.ext import Application, MessageHandler, filters, ContextTypes
+import openai
 
 # Telegram Bot Token
 BOT_TOKEN = "7749918794:AAFlgbWy2k9BTzJMPjFB1eJe7G4WUBniMrQ"
 
-# Predefined responses for legal tech queries
-LEGAL_TECH_RESPONSES = {
-    "what is a contract management system?": (
-        "A contract management system helps organize, track, and automate the lifecycle of contracts. "
-        "It ensures compliance, reduces risks, and improves efficiency."
-    ),
-    "how do i integrate ai into legal practice?": (
-        "Integrating AI into legal practice involves using tools like legal research platforms, contract review software, "
-        "and predictive analytics to automate tasks, save time, and enhance decision-making."
-    ),
-    "what is e-discovery?": (
-        "E-discovery refers to identifying, collecting, and reviewing electronic data for legal cases. "
-        "Tools like Relativity or Everlaw help streamline this process."
-    ),
-}
+# Admin User ID
+ADMIN_ID = 1662672529  # Replace with your Telegram user ID
 
-# Start command handler
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "Welcome to iLegal AI! 🤖\n"
-        "Ask me anything about legal technology, compliance, or automation.\n"
-        "Type your question to get started!"
-    )
+# AI response generator
+async def generate_ai_response(user_message: str) -> str:
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "You are iLegal AI, an assistant for legal technology queries."},
+                {"role": "user", "content": user_message}
+            ]
+        )
+        return response['choices'][0]['message']['content']
+    except Exception as e:
+        return f"Error generating response: {e}"
 
-# Help command handler
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "Commands you can use:\n"
-        "/start - Start the bot\n"
-        "/help - Get help\n"
-        "You can also type questions like:\n"
-        "- What is a contract management system?\n"
-        "- How do I integrate AI into legal practice?"
-    )
-
-# Message handler for predefined responses
+# Message handler for user messages
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_message = update.message.text.lower()  # Convert message to lowercase for matching
-    response = LEGAL_TECH_RESPONSES.get(user_message, "Sorry, I don't have an answer for that question yet.")
-    await update.message.reply_text(response)
+    user_id = update.message.from_user.id
+    user_message = update.message.text
+
+    # Check if the message is from the admin
+    if user_id == ADMIN_ID:
+        await update.message.reply_text("Hi Admin! How can I assist you today?")
+        return
+
+    # Generate AI-based response
+    ai_response = await generate_ai_response(user_message)
+    await update.message.reply_text(ai_response)
 
 # Main function to set up the bot
 def main():
     # Create the bot application
     application = Application.builder().token(BOT_TOKEN).build()
 
-    # Command handlers
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("help", help_command))
-    
     # Message handler
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    
+
     # Run the bot
     application.run_polling()
 
